@@ -70,34 +70,7 @@ def apply_token_budget(recent: List[Message], max_tokens: int) -> Tuple[List[Mes
         
     return pruned, total
 
-def extract_ticket_id(text: str) -> Optional[str]:
-    """Dynamically identifies IT Ticket IDs matching format IT-XXXX (X is digit)."""
-    match = re.search(r"\bIT-\d{4}\b", text, re.IGNORECASE)
-    if match:
-        return match.group(0).upper()
-    return None
-
-def infer_active_topic(text: str, current_topic: str = "general") -> str:
-    """
-    Infers the active topic based on user message content.
-    Categorizes into distinct strings (e.g. 'general', 'wifi_support', 'ticket_inquiry').
-    """
-    lower_text = text.lower()
-    
-    # Check for ticket inquiry
-    if extract_ticket_id(text) or "ticket" in lower_text:
-        return "ticket_inquiry"
-        
-    # Check for wifi / network support
-    if any(k in lower_text for k in ["wifi", "wi-fi", "internet", "network", "connect", "mac"]):
-        return "wifi_support"
-        
-    # Check for generic greeting
-    if any(k in lower_text for k in ["hi", "hello", "hey", "help"]):
-        if current_topic == "general" or not current_topic:
-            return "general"
-            
-    return current_topic or "general"
+from src.extractor import extract_ticket_id, infer_active_topic
 
 def get_log_filepath(session_id: str) -> Path:
     """Returns path for context log file: ./logs/context_{session_id}.json"""
