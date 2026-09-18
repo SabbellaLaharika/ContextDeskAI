@@ -25,17 +25,45 @@ def build_system_prompt(context: AgentContext) -> str:
     
     return "\n".join(prompt_lines)
 
+def get_llm_client_and_model() -> tuple[Optional[OpenAI], str]:
+    """
+    Determines provider (Groq or OpenAI) based on environment configuration.
+    Returns (client, model_name).
+    """
+    groq_key = os.getenv("GROQ_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+    
+    # Check for explicit invalid test key to trigger 500 error test (Req 10)
+    if groq_key == "invalid_key_for_testing_500" or openai_key == "invalid_key_for_testing_500":
+        raise RuntimeError("Invalid API key forced for error handling testing.")
+        
+    is_groq_valid = groq_key and not groq_key.startswith("your_") and groq_key != "mock_key_for_testing"
+    is_openai_valid = openai_key and not openai_key.startswith("your_") and openai_key != "mock_key_for_testing"
+
+    # Route 1: Valid Groq key provided
+    if is_groq_valid:
+        groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        client = OpenAI(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=groq_key
+        )
+        return client, groq_model
+
+    # Route 2: Valid OpenAI key provided
+    if is_openai_valid:
+        openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        client = OpenAI(api_key=openai_key)
+        return client, openai_model
+
+    # Route 3: Mock fallback for unit tests when no live API keys are provided
+    return None, "mock"
+
 def generate_llm_response(context: AgentContext, pruned_recent: List[Message]) -> str:
     """
-    Executes upstream LLM call using OpenAI API.
+    Executes upstream LLM call using Groq or OpenAI API.
     If the API call fails or key is invalid, raises an Exception to trigger atomic HTTP 500 rollback.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    
-    # If explicit invalid test key provided for 500 test
-    if api_key == "invalid_key_for_testing_500":
-        raise RuntimeError("Invalid API key forced for error handling testing.")
+    client, model = get_llm_client_and_model()
 
     system_prompt = build_system_prompt(context)
     
@@ -46,7 +74,7 @@ def generate_llm_response(context: AgentContext, pruned_recent: List[Message]) -
     for msg in pruned_recent:
         messages.append({"role": msg.role, "content": msg.content})
         
-    if not api_key or api_key == "mock_key_for_testing":
+    if client is None:
         # Mock LLM response generator for local unit testing when real API key is absent
         user_last = pruned_recent[-1].content if pruned_recent else ""
         ticket_id = context.pinned.ticket_id if context.pinned else None
@@ -60,11 +88,12 @@ def generate_llm_response(context: AgentContext, pruned_recent: List[Message]) -
         else:
             return "Hello! Welcome to the IT Helpdesk. How can I help you today?"
             
-    client = OpenAI(api_key=api_key)
     response = client.chat.completions.create(
         model=model,
         messages=messages,  # type: ignore
         temperature=0.3
     )
     
-    return response.choices[0].message.content or "I am unable to process your request."
+    raw_content = response.choices[0].message.content or "I am unable to process your request."
+    cleaned_content = raw_content.replace("\ufffd", "").replace("", "")
+    return cleaned_content

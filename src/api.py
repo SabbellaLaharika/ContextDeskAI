@@ -1,6 +1,7 @@
 import os
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -22,6 +23,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
+STATIC_UI_FILE = Path(__file__).parent / "static" / "index.html"
+
 class ChatRequest(BaseModel):
     session_id: str
     message: str
@@ -36,6 +39,14 @@ def get_token_budget_limit() -> int:
         return int(os.getenv("TOKEN_BUDGET_LIMIT", "4000"))
     except ValueError:
         return 4000
+
+@app.get("/", response_class=FileResponse)
+@app.get("/ui", response_class=FileResponse)
+async def serve_ui():
+    """Serves the interactive Web UI for context engineering testing."""
+    if STATIC_UI_FILE.exists():
+        return FileResponse(STATIC_UI_FILE)
+    raise HTTPException(status_code=404, detail="UI index.html file not found.")
 
 @app.get("/health")
 async def health_check():

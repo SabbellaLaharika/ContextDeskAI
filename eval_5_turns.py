@@ -5,6 +5,12 @@ import time
 from pathlib import Path
 import requests
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Ensure TOKEN_BUDGET_LIMIT is low enough to force eviction of older turns from 'recent' history
 os.environ["TOKEN_BUDGET_LIMIT"] = "100"
 
@@ -12,13 +18,19 @@ BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 SESSION_ID = "eval_session_5turn"
 LOG_FILE = Path(f"./logs/context_{SESSION_ID}.json")
 
+def clean_text(text: str) -> str:
+    """Strips unprintable replacement characters (\ufffd / )."""
+    if not text:
+        return ""
+    return text.replace("\ufffd", "").replace("", "")
+
 def send_chat_request(session_id: str, message: str) -> dict:
     """Sends POST request to /v1/chat endpoint and returns JSON response."""
     url = f"{BASE_URL}/v1/chat"
     payload = {"session_id": session_id, "message": message}
     
     try:
-        res = requests.post(url, json=payload, timeout=10)
+        res = requests.post(url, json=payload, timeout=30)
         if res.status_code != 200:
             print(f"Error: API returned status code {res.status_code}: {res.text}")
             sys.exit(1)
@@ -53,14 +65,14 @@ def main():
     # Turn 1: Greet
     print("\n[Turn 1] User: 'Hi, I need help.'")
     res1 = send_chat_request(SESSION_ID, "Hi, I need help.")
-    print(f"Agent Response: {res1.get('response')}")
+    print(f"Agent Response: {clean_text(res1.get('response'))}")
     print(f"Active Topic: {res1.get('active_topic')}")
     assert res1.get("active_topic") == "general", f"Expected topic 'general', got '{res1.get('active_topic')}'"
     
     # Turn 2: Provide Ticket ID
     print("\n[Turn 2] User: 'My ticket is IT-9921.'")
     res2 = send_chat_request(SESSION_ID, "My ticket is IT-9921.")
-    print(f"Agent Response: {res2.get('response')}")
+    print(f"Agent Response: {clean_text(res2.get('response'))}")
     print(f"Active Topic: {res2.get('active_topic')}")
     assert "ticket" in res2.get("active_topic", "").lower(), f"Expected ticket topic, got '{res2.get('active_topic')}'"
     
@@ -79,14 +91,14 @@ def main():
     )
     print("\n[Turn 3] User: Ask long Mac WiFi question (forcing token eviction)")
     res3 = send_chat_request(SESSION_ID, turn3_msg)
-    print(f"Agent Response: {res3.get('response')}")
+    print(f"Agent Response: {clean_text(res3.get('response'))}")
     print(f"Active Topic: {res3.get('active_topic')}")
     assert "wifi" in res3.get("active_topic", "").lower(), f"Expected wifi topic, got '{res3.get('active_topic')}'"
     
     # Turn 4: Ask follow-up details on WiFi
     print("\n[Turn 4] User: 'Can you give me the Mac troubleshooting steps?'")
     res4 = send_chat_request(SESSION_ID, "Can you give me the Mac troubleshooting steps?")
-    print(f"Agent Response: {res4.get('response')}")
+    print(f"Agent Response: {clean_text(res4.get('response'))}")
     print(f"Active Topic: {res4.get('active_topic')}")
     
     # Turn 5: Return to ticket inquiry
@@ -95,7 +107,7 @@ def main():
         SESSION_ID,
         "Okay, I fixed the WiFi. Let's go back to my original ticket. Can you confirm the status of the ticket I mentioned earlier?"
     )
-    reply_5 = res5.get("response", "")
+    reply_5 = clean_text(res5.get("response", ""))
     print(f"Agent Response: {reply_5}")
     print(f"Active Topic: {res5.get('active_topic')}")
     
@@ -124,8 +136,9 @@ def main():
     assert not turn_2_user_present, "FAIL: Turn 2 user message containing IT-9921 should have been evicted from recent array!"
     print("[PASS] Assertion 2: Turn 2 message evicted from 'recent' rolling window array.")
     
-    # Assertion 3: Final LLM response text MUST contain "IT-9921"
-    assert "IT-9921" in reply_5, f"FAIL: LLM reply does not contain ticket ID 'IT-9921'. Reply was: {reply_5}"
+    # Assertion 3: Final LLM response text MUST contain "IT-9921" (normalizing unicode non-breaking hyphens)
+    normalized_reply_5 = reply_5.replace("\u2011", "-").replace("‑", "-")
+    assert "IT-9921" in normalized_reply_5, f"FAIL: LLM reply does not contain ticket ID 'IT-9921'. Reply was: {reply_5}"
     print("[PASS] Assertion 3: Final LLM response intelligently referenced 'IT-9921'.")
     
     print("\nSUCCESS: All 5-Turn Context Engineering evaluation assertions PASSED!")

@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  helpdesk-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: it_helpdesk_agent
+    ports:
+      - "8000:8000"
+    environment:
+      - TOKEN_BUDGET_LIMIT=${TOKEN_BUDGET_LIMIT:-4000}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock_key_for_testing}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped

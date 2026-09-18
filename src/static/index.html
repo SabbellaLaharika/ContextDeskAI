@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context-Aware IT Helpdesk Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-chat: #090d16;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent-pink: #ec4899;
+            --accent-teal: #14b8a6;
+            --accent-amber: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header Bar */
+        header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--accent-pink));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .brand-title {
+            font-size: 20px;
+            font-weight: 600;
+            background: linear-gradient(to right, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .session-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .session-control label {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .session-input {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: var(--radius-md);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .session-input:focus {
+            border-color: var(--primary);
+        }
+
+        /* Main Workspace Grid */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            flex: 1;
+            height: calc(100vh - 69px);
+            overflow: hidden;
+        }
+
+        /* Left Chat Panel */
+        .chat-panel {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background: var(--bg-chat);
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            min-height: 0;
+        }
+
+        .message-row {
+            display: flex;
+            flex-direction: column;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-row.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message-row.assistant {
+            align-self: flex-start;
+            align-items: flex-start;
+        }
+
+        .message-bubble {
+            padding: 14px 18px;
+            border-radius: var(--radius-lg);
+            font-size: 15px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .message-row.user .message-bubble {
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-row.assistant .message-bubble {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-sender {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            padding: 0 4px;
+        }
+
+        /* Guided Demo Toolbar */
+        .demo-toolbar {
+            padding: 12px 24px;
+            background: rgba(30, 41, 59, 0.5);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow-x: auto;
+        }
+
+        .demo-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-amber);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .btn-demo {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .btn-demo:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        /* Chat Input Bar */
+        .chat-input-container {
+            padding: 16px 24px;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, var(--primary), var(--accent-pink));
+            color: white;
+            border: none;
+            padding: 0 24px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .btn-send:hover {
+            opacity: 0.9;
+        }
+
+        .btn-send:active {
+            transform: scale(0.98);
+        }
+
+        /* Right State Inspector Panel */
+        .inspector-panel {
+            background: var(--bg-card);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 24px;
+            gap: 20px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse-indicator {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-teal);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-teal);
+        }
+
+        .state-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+
+        .state-card-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tag-pinned {
+            background: rgba(236, 72, 153, 0.15);
+            color: var(--accent-pink);
+            border: 1px solid rgba(236, 72, 153, 0.3);
+        }
+
+        .tag-topic {
+            background: rgba(20, 184, 166, 0.15);
+            color: var(--accent-teal);
+            border: 1px solid rgba(20, 184, 166, 0.3);
+        }
+
+        .progress-bar-container {
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(to right, var(--accent-teal), var(--accent-amber));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* JSON Inspector */
+        .json-viewer {
+            background: #090d16;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #a7f3d0;
+            overflow-x: auto;
+            max-height: 280px;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <div class="brand-icon">IT</div>
+            <div class="brand-title">Context-Aware IT Helpdesk Agent</div>
+        </div>
+        <div class="session-control">
+            <label for="sessionIdInput">Session ID:</label>
+            <input type="text" id="sessionIdInput" class="session-input" value="interactive_demo_session">
+            <button class="btn-demo" onclick="refreshContextState()">🔄 Refresh State</button>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <!-- Left: Interactive Chat -->
+        <div class="chat-panel">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message-row assistant">
+                    <div class="message-sender">IT Assistant</div>
+                    <div class="message-bubble">Hello! Welcome to the University IT Helpdesk. How can I assist you today?</div>
+                </div>
+            </div>
+
+            <!-- Guided Demo Toolbar -->
+            <div class="demo-toolbar">
+                <span class="demo-label">⚡ 5-Turn Demo:</span>
+                <button class="btn-demo" onclick="sendDemoTurn(1)">Turn 1: Greet</button>
+                <button class="btn-demo" onclick="sendDemoTurn(2)">Turn 2: Ticket IT-9921</button>
+                <button class="btn-demo" onclick="sendDemoTurn(3)">Turn 3: Mac WiFi Issue</button>
+                <button class="btn-demo" onclick="sendDemoTurn(4)">Turn 4: WiFi Steps</button>
+                <button class="btn-demo" onclick="sendDemoTurn(5)">Turn 5: Ticket Status?</button>
+            </div>
+
+            <div class="chat-input-container">
+                <input type="text" id="messageInput" class="chat-input" placeholder="Type your message here... (e.g. My ticket is IT-9921)" onkeypress="handleKeyPress(event)">
+                <button class="btn-send" id="sendBtn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <!-- Right: Real-time State Inspector -->
+        <div class="inspector-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="pulse-indicator"></div>
+                    Context State Inspector
+                </div>
+                <span style="font-size: 12px; color: var(--text-muted);" id="lastUpdated">Live</span>
+            </div>
+
+            <!-- Pinned Memory Card -->
+            <div class="state-card">
+                <div class="state-card-title">📌 Pinned Memory (Bypasses Eviction)</div>
+                <div>
+                    <span class="tag tag-pinned" id="pinnedTicketId">ticket_id: null</span>
+                </div>
+            </div>
+
+            <!-- Active Topic Card -->
+            <div class="state-card">
+                <div class="state-card-title">🏷️ Active Topic</div>
+                <div>
+                    <span class="tag tag-topic" id="activeTopicTag">active_topic: general</span>
+                </div>
+            </div>
+
+            <!-- Token Budget Card -->
+            <div class="state-card">
+                <div class="state-card-title">📊 Token Budget Limit (recent history)</div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 500;">
+                    <span>Recent Tokens: <strong id="tokenCount">0</strong></span>
+                    <span style="color: var(--text-muted);" id="tokenBudgetLimit">Budget: 4000</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="tokenProgressBar"></div>
+                </div>
+            </div>
+
+            <!-- Recent History Count -->
+            <div class="state-card">
+                <div class="state-card-title">📜 Rolling Window Recent History</div>
+                <div style="font-size: 14px; color: var(--text-main);" id="recentMessagesSummary">
+                    0 messages in recent array
+                </div>
+            </div>
+
+            <!-- Live JSON Dump -->
+            <div class="state-card">
+                <div class="state-card-title">💾 Disk JSON File (./logs/context_{id}.json)</div>
+                <pre class="json-viewer" id="jsonViewer">{ "session_id": "...", "active_topic": "general", "pinned": { "ticket_id": null }, "recent": [], "total_recent_tokens": 0 }</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "";
+
+        function getSessionId() {
+            return document.getElementById("sessionIdInput").value.trim() || "interactive_demo_session";
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById("messageInput");
+            const text = input.value.trim();
+            if (!text) return;
+
+            const sessionId = getSessionId();
+            appendMessage("user", text);
+            input.value = "";
+
+            const sendBtn = document.getElementById("sendBtn");
+            sendBtn.innerHTML = '<div class="spinner"></div>';
+            sendBtn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/v1/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: sessionId, message: text })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    appendMessage("assistant", `⚠️ Error ${res.status}: ${err.detail || "Server Error"}`);
+                } else {
+                    const data = await res.json();
+                    appendMessage("assistant", data.response);
+                }
+
+                await refreshContextState();
+            } catch (err) {
+                appendMessage("assistant", `⚠️ Connection Error: ${err.message}`);
+            } finally {
+                sendBtn.innerHTML = 'Send';
+                sendBtn.disabled = false;
+            }
+        }
+
+        function appendMessage(role, content) {
+            const chatMessages = document.getElementById("chatMessages");
+            const row = document.createElement("div");
+            row.className = `message-row ${role}`;
+
+            const sender = document.createElement("div");
+            sender.className = "message-sender";
+            sender.innerText = role === "user" ? "You" : "IT Assistant";
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+            bubble.innerText = content;
+
+            row.appendChild(sender);
+            row.appendChild(bubble);
+            chatMessages.appendChild(row);
+            setTimeout(() => {
+                chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+            }, 50);
+        }
+
+        async function refreshContextState() {
+            const sessionId = getSessionId();
+            try {
+                const res = await fetch(`${API_BASE}/v1/context/${sessionId}`);
+                if (res.status === 404) {
+                    updateStateUI({
+                        session_id: sessionId,
+                        active_topic: "general",
+                        pinned: { ticket_id: null },
+                        recent: [],
+                        total_recent_tokens: 0
+                    });
+                    return;
+                }
+                const data = await res.json();
+                updateStateUI(data);
+            } catch (err) {
+                console.error("Failed to fetch context state:", err);
+            }
+        }
+
+        function updateStateUI(data) {
+            // Pinned Ticket ID
+            const ticketId = data.pinned && data.pinned.ticket_id ? data.pinned.ticket_id : "null";
+            document.getElementById("pinnedTicketId").innerText = `ticket_id: ${ticketId}`;
+
+            // Active Topic
+            const topic = data.active_topic || "general";
+            document.getElementById("activeTopicTag").innerText = `active_topic: ${topic}`;
+
+            // Tokens & Budget
+            const tokens = data.total_recent_tokens || 0;
+            const limit = 4000;
+            document.getElementById("tokenCount").innerText = tokens;
+            document.getElementById("tokenBudgetLimit").innerText = `Limit: ${limit}`;
+            
+            const pct = Math.min(100, Math.round((tokens / limit) * 100));
+            document.getElementById("tokenProgressBar").style.width = `${pct}%`;
+
+            // Recent Messages Count
+            const count = data.recent ? data.recent.length : 0;
+            document.getElementById("recentMessagesSummary").innerText = `${count} messages currently in rolling window recent array`;
+
+            // Raw JSON
+            document.getElementById("jsonViewer").innerText = JSON.stringify(data, null, 2);
+            document.getElementById("lastUpdated").innerText = `Updated: ${new Date().toLocaleTimeString()}`;
+        }
+
+        function sendDemoTurn(step) {
+            const input = document.getElementById("messageInput");
+            if (step === 1) input.value = "Hi, I need help.";
+            if (step === 2) input.value = "My ticket is IT-9921.";
+            if (step === 3) input.value = "Actually, before we do that, my WiFi in the library just dropped. I am using a Mac computer. It says 'connected without internet'.";
+            if (step === 4) input.value = "Can you give me the Mac troubleshooting steps?";
+            if (step === 5) input.value = "Okay, I fixed the WiFi. Let's go back to my original ticket. Can you confirm the status of the ticket I mentioned earlier?";
+            sendMessage();
+        }
+
+        // Initial state load
+        refreshContextState();
+    </script>
+</body>
+</html>
