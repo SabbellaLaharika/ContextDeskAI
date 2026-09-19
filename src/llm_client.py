@@ -129,4 +129,3 @@ def generate_llm_response(context: AgentContext, pruned_recent: List[Message]) -
             cleaned_content += "\n\nI have generated support ticket IT-5821 for your request. An IT specialist will review your issue."
             
     return cleaned_content
-
