@@ -18,6 +18,10 @@ def infer_active_topic(text: str, current_topic: str = "general") -> str:
     Dynamically infers and updates active_topic based on the user's focus.
     Categorizes conversation into distinct semantic strings:
     - 'ticket_inquiry' for ticket-related queries
+    - 'password_reset' for password reset & account lockout support
+    - 'printer_support' for printer & print queue support
+    - 'vpn_support' for VPN & remote access support
+    - 'software_support' for software installation & email setup
     - 'wifi_support' for WiFi / network troubleshooting
     - 'general' for generic greetings or default state
     """
@@ -29,12 +33,28 @@ def infer_active_topic(text: str, current_topic: str = "general") -> str:
     # Priority 1: Ticket inquiry (ticket ID present or ticket keyword)
     if extract_ticket_id(text) or "ticket" in lower_text:
         return "ticket_inquiry"
+
+    # Priority 2: Password Resets & Account Lockouts
+    if any(k in lower_text for k in ["password", "lockout", "locked", "reset", "portal"]):
+        return "password_reset"
+
+    # Priority 3: Printer & Print Queue Resources
+    if any(k in lower_text for k in ["print", "printer", "paper", "jam"]):
+        return "printer_support"
+
+    # Priority 4: VPN & Remote Access
+    if any(k in lower_text for k in ["vpn", "remote access", "anyconnect", "globalprotect"]):
+        return "vpn_support"
+
+    # Priority 5: Software & Email Setup
+    if any(k in lower_text for k in ["office", "office 365", "outlook", "software", "license"]):
+        return "software_support"
         
-    # Priority 2: WiFi and network connectivity support
+    # Priority 6: WiFi and network connectivity support
     if any(k in lower_text for k in ["wifi", "wi-fi", "internet", "network", "connect", "mac"]):
         return "wifi_support"
         
-    # Priority 3: Generic greetings
+    # Priority 7: Generic greetings
     if any(k in lower_text for k in ["hi", "hello", "hey", "help", "greet"]):
         if current_topic == "general" or not current_topic:
             return "general"

@@ -15,7 +15,7 @@ if hasattr(sys.stdout, "reconfigure"):
 os.environ["TOKEN_BUDGET_LIMIT"] = "100"
 
 BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-SESSION_ID = "eval_session_5turn"
+SESSION_ID = f"eval_session_5turn_{int(time.time())}"
 LOG_FILE = Path(f"./logs/context_{SESSION_ID}.json")
 
 def clean_text(text: str) -> str:

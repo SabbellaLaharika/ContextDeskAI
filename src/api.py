@@ -118,6 +118,12 @@ async def chat(req: ChatRequest):
     assistant_msg = Message(role="assistant", content=reply_text)
     final_recent = pruned_staged_recent + [assistant_msg]
 
+    # If staged_ticket_id was not provided by user message, check if LLM generated a new Ticket ID
+    if not staged_ticket_id:
+        llm_generated_ticket = extract_ticket_id(reply_text)
+        if llm_generated_ticket:
+            staged_ticket_id = llm_generated_ticket
+
     # Re-apply token budget limit to ensure recent array with assistant response remains under limit
     pruned_final_recent, final_token_count = apply_token_budget(final_recent, token_limit)
 

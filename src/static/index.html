@@ -393,8 +393,9 @@
         </div>
         <div class="session-control">
             <label for="sessionIdInput">Session ID:</label>
-            <input type="text" id="sessionIdInput" class="session-input" value="interactive_demo_session">
+            <input type="text" id="sessionIdInput" class="session-input" value="interactive_demo_session" onchange="refreshContextState()">
             <button class="btn-demo" onclick="refreshContextState()">🔄 Refresh State</button>
+            <button class="btn-demo" onclick="startNewSession()" style="background: var(--primary); border-color: var(--primary);">➕ New Session</button>
         </div>
     </header>
 
@@ -481,8 +482,19 @@
     <script>
         const API_BASE = "";
 
+        function generateUniqueSessionId() {
+            return "session_" + Math.random().toString(36).substring(2, 8);
+        }
+
         function getSessionId() {
             return document.getElementById("sessionIdInput").value.trim() || "interactive_demo_session";
+        }
+
+        function startNewSession() {
+            const newId = generateUniqueSessionId();
+            document.getElementById("sessionIdInput").value = newId;
+            resetChatUI();
+            refreshContextState();
         }
 
         function handleKeyPress(e) {
@@ -528,6 +540,16 @@
             }
         }
 
+        function resetChatUI() {
+            const chatMessages = document.getElementById("chatMessages");
+            chatMessages.innerHTML = `
+                <div class="message-row assistant">
+                    <div class="message-sender">IT Assistant</div>
+                    <div class="message-bubble">Hello! Welcome to the University IT Helpdesk. How can I assist you today?</div>
+                </div>
+            `;
+        }
+
         function appendMessage(role, content) {
             const chatMessages = document.getElementById("chatMessages");
             const row = document.createElement("div");
@@ -554,6 +576,7 @@
             try {
                 const res = await fetch(`${API_BASE}/v1/context/${sessionId}`);
                 if (res.status === 404) {
+                    resetChatUI();
                     updateStateUI({
                         session_id: sessionId,
                         active_topic: "general",
@@ -564,6 +587,14 @@
                     return;
                 }
                 const data = await res.json();
+                
+                // Sync chat window with recent history if available
+                if (data.recent && data.recent.length > 0) {
+                    const chatMessages = document.getElementById("chatMessages");
+                    chatMessages.innerHTML = "";
+                    data.recent.forEach(msg => appendMessage(msg.role, msg.content));
+                }
+                
                 updateStateUI(data);
             } catch (err) {
                 console.error("Failed to fetch context state:", err);
@@ -607,7 +638,8 @@
             sendMessage();
         }
 
-        // Initial state load
+        // Set initial dynamic session ID on first load
+        document.getElementById("sessionIdInput").value = generateUniqueSessionId();
         refreshContextState();
     </script>
 </body>
