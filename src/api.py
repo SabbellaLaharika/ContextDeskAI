@@ -12,7 +12,7 @@ from src.context_engine import (
     load_context,
     save_context
 )
-from src.extractor import extract_ticket_id, infer_active_topic
+from src.extractor import extract_ticket_id, extract_created_ticket_id, infer_active_topic
 from src.token_budget import apply_token_budget
 from src.llm_client import generate_llm_response
 
@@ -25,9 +25,12 @@ app = FastAPI(
 
 STATIC_UI_FILE = Path(__file__).parent / "static" / "index.html"
 
+from typing import Optional
+
 class ChatRequest(BaseModel):
     session_id: str
     message: str
+    token_budget_limit: Optional[int] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -77,7 +80,7 @@ async def chat(req: ChatRequest):
     if not req.session_id or not req.message:
         raise HTTPException(status_code=400, detail="session_id and message are required.")
 
-    token_limit = get_token_budget_limit()
+    token_limit = req.token_budget_limit if req.token_budget_limit is not None else get_token_budget_limit()
 
     # Load or create session context
     original_context = load_context(req.session_id, create_if_missing=True)
@@ -117,6 +120,12 @@ async def chat(req: ChatRequest):
     # LLM generation succeeded: stage assistant response
     assistant_msg = Message(role="assistant", content=reply_text)
     final_recent = pruned_staged_recent + [assistant_msg]
+
+    # If staged_ticket_id was not provided by user message, check if LLM generated a new Ticket ID
+    if not staged_ticket_id:
+        llm_generated_ticket = extract_created_ticket_id(reply_text)
+        if llm_generated_ticket:
+            staged_ticket_id = llm_generated_ticket
 
     # Re-apply token budget limit to ensure recent array with assistant response remains under limit
     pruned_final_recent, final_token_count = apply_token_budget(final_recent, token_limit)

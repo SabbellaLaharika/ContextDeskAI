@@ -23,3 +23,9 @@ def test_infer_active_topic_ticket():
 def test_infer_active_topic_wifi():
     assert infer_active_topic("My WiFi in the library just dropped. I am using a Mac.", "general") == "wifi_support"
     assert infer_active_topic("Can you give me the Mac troubleshooting steps?", "wifi_support") == "wifi_support"
+
+def test_infer_active_topic_additional_categories():
+    assert infer_active_topic("I locked my student portal account. How do I unlock it?", "general") == "password_reset"
+    assert infer_active_topic("How do I connect to the library printer on Windows?", "general") == "printer_support"
+    assert infer_active_topic("How do I set up campus VPN for off-campus access?", "general") == "vpn_support"
+    assert infer_active_topic("How do I install Office 365 using my university email?", "general") == "software_support"

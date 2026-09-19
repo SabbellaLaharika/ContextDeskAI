@@ -15,7 +15,7 @@ if hasattr(sys.stdout, "reconfigure"):
 os.environ["TOKEN_BUDGET_LIMIT"] = "100"
 
 BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-SESSION_ID = "eval_session_5turn"
+SESSION_ID = f"eval_session_5turn_{int(time.time())}"
 LOG_FILE = Path(f"./logs/context_{SESSION_ID}.json")
 
 def clean_text(text: str) -> str:
@@ -26,26 +26,29 @@ def clean_text(text: str) -> str:
 
 def send_chat_request(session_id: str, message: str) -> dict:
     """Sends POST request to /v1/chat endpoint and returns JSON response."""
-    url = f"{BASE_URL}/v1/chat"
-    payload = {"session_id": session_id, "message": message}
+    payload = {
+        "session_id": session_id,
+        "message": message,
+        "token_budget_limit": 100
+    }
     
+    url = f"{BASE_URL}/v1/chat"
     try:
         res = requests.post(url, json=payload, timeout=30)
-        if res.status_code != 200:
-            print(f"Error: API returned status code {res.status_code}: {res.text}")
-            sys.exit(1)
-        return res.json()
-    except requests.exceptions.ConnectionError:
-        # Fallback to FastAPI TestClient if live server is not running on localhost:8000
-        from fastapi.testclient import TestClient
-        from src.api import app
-        
-        client = TestClient(app)
-        res = client.post("/v1/chat", json=payload)
-        if res.status_code != 200:
-            print(f"TestClient Error: status code {res.status_code}: {res.text}")
-            sys.exit(1)
-        return res.json()
+        if res.status_code == 200:
+            return res.json()
+    except Exception:
+        pass
+
+    from fastapi.testclient import TestClient
+    from src.api import app
+    
+    client = TestClient(app)
+    res = client.post("/v1/chat", json=payload)
+    if res.status_code != 200:
+        print(f"TestClient Error: status code {res.status_code}: {res.text}")
+        sys.exit(1)
+    return res.json()
 
 def main():
     print("=" * 60)
